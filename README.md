@@ -6,7 +6,6 @@ This repository contains an assembler for the Hack machine language, as specifie
 
 ```bash
    git clone https://github.com/nkrishang/hack-assembler.git
-   cd hack-assembler
 ```
 
 2. Run the assembler:
