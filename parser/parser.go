@@ -8,12 +8,6 @@ import (
 	"strings"
 )
 
-// type Parser struct {
-// 	fileScanner *bufio.Scanner
-// 	hasMoreLines bool
-// 	currentInstruction string
-// }
-
 type InstructionType int
 
 const (
@@ -21,36 +15,6 @@ const (
 	C_INSTRUCTION
 	L_INSTRUCTION
 )
-
-// func InitParser(inputFile *os.File) *Parser {
-// 	fileScanner := bufio.NewScanner(inputFile)
-	
-// 	hasMoreLines := fileScanner.Scan()
-// 	currentInstruction := fileScanner.Text()
-
-// 	return &Parser{
-// 		fileScanner: fileScanner,
-// 		hasMoreLines: hasMoreLines,
-// 		currentInstruction: currentInstruction,
-// 	}
-// }
-
-// // Advances to the next instruction. TODO: Handle an empty file
-// func (p *Parser) advance() bool {
-
-// 	instruction := p.currentInstruction
-
-// 	check := strings.TrimSpace(instruction)
-// 	if check == "" || strings.HasPrefix(instruction, "/") {
-// 		return true
-// 	}
-
-// 	p.hasMoreLines = p.fileScanner.Scan()
-// 	p.currentInstruction = p.fileScanner.Text()
-
-// 	return p.hasMoreLines
-// }
-
 
 // Returns the type of the current instruction.
 func instructionType(instruction string) InstructionType {
@@ -149,13 +113,10 @@ func asmToBinary(instruction string) string {
 }
 
 func Parse(inputFile, outputFile *os.File) {
-	fileScannerFirstPass := bufio.NewScanner(inputFile)
-	fileScannerSecondPass := bufio.NewScanner(inputFile)
-	fileScannerThirdPass := bufio.NewScanner(inputFile)
 
+	// Initialize symbolTable: R0=0, R1=1, ... etc.
 	symbolTable := make(map[string]string)
-
-	// Initialize symbolTable: set R0=0, R1=1, ... R15=15
+	
 	for i := range 16 {
 		sym := strconv.FormatUint(uint64(i), 10)
 		symbolTable["R" + sym] = sym
@@ -168,23 +129,21 @@ func Parse(inputFile, outputFile *os.File) {
 	symbolTable["SCREEN"] = "16384"
 	symbolTable["KBD"] = "24576"
 	
-	// First pass: identify symbols and assign them RAM/ROM locations
+	// First pass: identify label symbols and assign them RAM/ROM locations
 	programCounter := 0
 
+	fileScannerFirstPass := bufio.NewScanner(inputFile)
 	for fileScannerFirstPass.Scan() {
 
-		// Get ASM line
+		// Get and sanitize ASM line
 		line := strings.TrimSpace(fileScannerFirstPass.Text())
 		if line == "" || strings.HasPrefix(line, "/") {
 			continue
 		}
 		line = strings.Split(line, " ")[0]
-		
-		s := symbol(line)
-		instType := instructionType(line)
 
-		if instType == L_INSTRUCTION {
-			symbolTable[s] = strconv.Itoa(programCounter)
+		if instructionType(line) == L_INSTRUCTION {
+			symbolTable[symbol(line)] = strconv.Itoa(programCounter)
 		} else {
 			programCounter++
 		}
@@ -203,11 +162,13 @@ func Parse(inputFile, outputFile *os.File) {
 		os.Exit(1)
 	}
 
+	// Second pass: translate symbolized ASM to Binary
 	ramCounter := 16
 	
+	fileScannerSecondPass := bufio.NewScanner(inputFile)
 	for fileScannerSecondPass.Scan() {
 
-		// Get ASM line
+		// Get and sanitize ASM line
 		line := strings.TrimSpace(fileScannerSecondPass.Text())
 		if line == "" || strings.HasPrefix(line, "/") {
 			continue
@@ -216,43 +177,6 @@ func Parse(inputFile, outputFile *os.File) {
 		
 		s := symbol(line)
 		instType := instructionType(line)
-
-		if instType != A_INSTRUCTION {
-			continue
-		}
-
-		if _, err := strconv.Atoi(s); err != nil && len(symbolTable[s]) == 0 {
-			symbolTable[s] = strconv.Itoa(ramCounter)
-			ramCounter++
-		}
-	}
-
-	// Check for errors during scanning
-	if err := fileScannerSecondPass.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input file: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Reset the file pointer to the beginning of the file
-	_, err = inputFile.Seek(0, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error seeking input file: %v\n", err)
-		os.Exit(1)
-	}
-	
-	// Second pass: translate assembly to binary
-	for fileScannerThirdPass.Scan() {
-
-		// Get ASM line
-		line := strings.TrimSpace(fileScannerThirdPass.Text())
-		if line == "" || strings.HasPrefix(line, "/") {
-			continue
-		}
-		line = strings.Split(line, " ")[0]
-
-		instType := instructionType(line)
-
-		s := symbol(line)
 		var nonSymbolizedLine string
 
 		switch instType {
@@ -264,6 +188,10 @@ func Parse(inputFile, outputFile *os.File) {
 
 			case A_INSTRUCTION:
 				if _, err := strconv.Atoi(s); err != nil {
+					if symbolTable[s] == "" {
+						symbolTable[s] = strconv.Itoa(ramCounter)	
+						ramCounter++
+					}
 					nonSymbolizedLine = strings.Replace(line, s, symbolTable[s], 1)
 				} else {
 					nonSymbolizedLine = line
@@ -282,10 +210,11 @@ func Parse(inputFile, outputFile *os.File) {
 			fmt.Fprintf(os.Stderr, "Error writing to output file: %v\n", err)
 			os.Exit(1)
 		}
+
 	}
 
 	// Check for errors during scanning
-	if err := fileScannerThirdPass.Err(); err != nil {
+	if err := fileScannerSecondPass.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading input file: %v\n", err)
 		os.Exit(1)
 	}
