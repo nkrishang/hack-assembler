@@ -12,7 +12,7 @@ import (
 func main() {
 	// Prompt user for file path
 	fmt.Print("Enter the path to the file: ")
-	
+
 	// Read user input
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
@@ -20,7 +20,7 @@ func main() {
 
 	// Only accept ASM files
 	if !strings.Contains(filePath, ".asm") {
-		fmt.Fprintf(os.Stderr, "Error: cannot parse non asm files.\n")
+		fmt.Fprintf(os.Stderr, "Error: cannot parse non-ASM files.\n")
 		os.Exit(1)
 	}
 
@@ -32,17 +32,25 @@ func main() {
 	}
 	defer inputFile.Close()
 
-	// Create a .hack output file in the current directory
+	// Create the output directory if it doesn't exist
+	outputDir := "output"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create the .hack output file in the output directory
 	outputFileName := strings.Split(filepath.Base(filePath), ".")[0] + ".hack"
-	outputFile, err := os.Create(outputFileName)
+	outputFilePath := filepath.Join(outputDir, outputFileName)
+	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 		os.Exit(1)
 	}
 	defer outputFile.Close()
 
-	// Parse input file and write result in output file.
+	// Parse input file and write result in output file
 	parser.Parse(inputFile, outputFile)
 
-	fmt.Printf("Contents have been written to %s\n", outputFileName)
+	fmt.Printf("Contents have been written to %s\n", outputFilePath)
 }
