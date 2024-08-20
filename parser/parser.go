@@ -83,19 +83,12 @@ func jump(instruction string) string {
 }
 
 func asmToBinary(instruction string) string {
-	// Get instruction type
-	instType := instructionType(instruction)
 
-	switch instType {
+	switch instructionType(instruction) {
 
-	// TODO: Handle symbols e.g. "@sum"
 	case A_INSTRUCTION:
 		addr := symbol(instruction)
-		return DecimalStrToBinary15BitStr(addr)
-	
-	// TODO: Handle jump labels	e.g. "(LOOP)"
-	case L_INSTRUCTION:
-		return ""
+		return DecimalStrToBinary15BitStr(addr)		
 
 	case C_INSTRUCTION: 
 		var result strings.Builder
@@ -108,13 +101,11 @@ func asmToBinary(instruction string) string {
 		return result.String()
 
 	default:
-		panic("Unrecognized instruction type")
+		panic("Unsupported instruction type")
 	}
 }
 
-func Parse(inputFile, outputFile *os.File) {
-
-	// Initialize symbolTable: R0=0, R1=1, ... etc.
+func initializeSymbolTable() map[string]string {
 	symbolTable := make(map[string]string)
 	
 	for i := range 16 {
@@ -128,6 +119,14 @@ func Parse(inputFile, outputFile *os.File) {
 	symbolTable["THAT"] = "4"
 	symbolTable["SCREEN"] = "16384"
 	symbolTable["KBD"] = "24576"
+
+	return symbolTable
+} 
+
+func Parse(inputFile, outputFile *os.File) {
+
+	// Initialize symbolTable: R0=0, R1=1, ... etc.
+	symbolTable := initializeSymbolTable()
 	
 	// First pass: identify label symbols and assign them RAM/ROM locations
 	programCounter := 0
@@ -176,15 +175,11 @@ func Parse(inputFile, outputFile *os.File) {
 		line = strings.Split(line, " ")[0]
 		
 		s := symbol(line)
-		instType := instructionType(line)
 		var nonSymbolizedLine string
 
-		switch instType {
+		switch instructionType(line) {
 			case C_INSTRUCTION:				
 				nonSymbolizedLine = line
-			
-			case L_INSTRUCTION:
-				continue
 
 			case A_INSTRUCTION:
 				if _, err := strconv.Atoi(s); err != nil {
@@ -198,7 +193,7 @@ func Parse(inputFile, outputFile *os.File) {
 				}
 
 			default:
-				panic("Unrecognized instruction type")
+				continue
 		}
 
 		// Translate to binary
