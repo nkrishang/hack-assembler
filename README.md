@@ -11,10 +11,10 @@ This repository contains an assembler for the Hack machine language, as specifie
 2. Run the assembler:
 
 ```bash
-go run main.go path/to/your/file.asm
+go run main.go
 ```
 
-This will generate a corresponding .hack file in an output directory, containing the machine code that can be executed on the Hack computer.
+Input the path to an assembly file `path/to/your/file.asm` once prompted. This will generate a corresponding .hack file in an output directory, containing the machine code that can be executed on the Hack computer.
 
 ## Testing
 
